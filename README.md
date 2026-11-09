@@ -1,4 +1,4 @@
-# 🩺 HealthSense AI: Health Risk Prediction & Analytics
+# 🩺 HealthSense AI
 
 An educational healthcare application that combines machine learning, medical report analysis, hospital recommendations, and an AI-powered health assistant in one platform.
 
