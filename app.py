@@ -7,6 +7,8 @@ import os
 import re
 import tempfile
 import time
+import uuid
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -117,10 +119,115 @@ def initialize_state():
         "patient_data": {}, "last_audio_id": None, "report_text": "",
         "report_result": None, "risk_result": None,
         "awaiting_city": False, "chat_city_active": None,
+        "chat_session_id": None, "chat_started_at": None,
+        "chat_history_loaded": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+    # Restore the most recent active conversation once per Streamlit session.
+    if not st.session_state.chat_history_loaded:
+        saved = load_chat_store()
+        active = saved.get("active")
+        if active and isinstance(active.get("messages"), list):
+            st.session_state.chat_history = active["messages"]
+            st.session_state.chat_session_id = active.get("id")
+            st.session_state.chat_started_at = active.get("created_at")
+        st.session_state.chat_history_loaded = True
+
+
+CHAT_STORE_PATH = BASE_DIR / "chat_history.json"
+MAX_SAVED_CONVERSATIONS = 50
+
+
+def load_chat_store():
+    """Load local conversation history. The file stays on this machine."""
+    try:
+        if CHAT_STORE_PATH.exists():
+            with CHAT_STORE_PATH.open("r", encoding="utf-8") as file:
+                data = json.load(file)
+            if isinstance(data, dict):
+                data.setdefault("active", None)
+                data.setdefault("conversations", [])
+                return data
+    except (OSError, json.JSONDecodeError):
+        pass
+    return {"active": None, "conversations": []}
+
+
+def save_chat_store(data):
+    try:
+        CHAT_STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = CHAT_STORE_PATH.with_suffix(".tmp")
+        with temp_path.open("w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=2)
+        temp_path.replace(CHAT_STORE_PATH)
+    except OSError as exc:
+        st.warning(f"Could not save chat history locally: {exc}")
+
+
+def save_active_conversation():
+    messages = st.session_state.get("chat_history", [])
+    if not messages:
+        return
+    if not st.session_state.get("chat_session_id"):
+        st.session_state.chat_session_id = str(uuid.uuid4())
+    if not st.session_state.get("chat_started_at"):
+        st.session_state.chat_started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data = load_chat_store()
+    first_user = next((m.get("content", "") for m in messages if m.get("role") == "user"), "New conversation")
+    title = " ".join(str(first_user).split())[:55] or "New conversation"
+    data["active"] = {
+        "id": st.session_state.chat_session_id,
+        "title": title,
+        "created_at": st.session_state.chat_started_at,
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "messages": messages,
+    }
+    save_chat_store(data)
+
+
+def archive_active_conversation():
+    save_active_conversation()
+    data = load_chat_store()
+    active = data.get("active")
+    if active and active.get("messages"):
+        archived = [c for c in data.get("conversations", []) if c.get("id") != active.get("id")]
+        archived.insert(0, active)
+        data["conversations"] = archived[:MAX_SAVED_CONVERSATIONS]
+    data["active"] = None
+    save_chat_store(data)
+
+
+def clear_current_conversation():
+    data = load_chat_store()
+    data["active"] = None
+    save_chat_store(data)
+    st.session_state.chat_history = []
+    st.session_state.last_audio_id = None
+    st.session_state.chat_session_id = None
+    st.session_state.chat_started_at = None
+    st.session_state.awaiting_city = False
+    st.session_state.chat_city_active = None
+    st.session_state.pop("speak_pending", None)
+
+
+def start_new_conversation():
+    archive_active_conversation()
+    clear_current_conversation()
+
+
+def open_saved_conversation(conversation):
+    archive_active_conversation()
+    st.session_state.chat_history = conversation.get("messages", [])
+    st.session_state.chat_session_id = conversation.get("id") or str(uuid.uuid4())
+    st.session_state.chat_started_at = conversation.get("created_at")
+    st.session_state.last_audio_id = None
+    st.session_state.awaiting_city = False
+    st.session_state.chat_city_active = None
+    st.session_state.pop("speak_pending", None)
+    save_active_conversation()
 
 
 def navigate_to_page(page):
@@ -822,6 +929,7 @@ def add_chat_message(message):
     if doctors:
         entry["doctors"] = doctors
     st.session_state.chat_history.append(entry)
+    save_active_conversation()
 
 
 # =========================================================
@@ -1281,6 +1389,26 @@ def render_chatbot():
         st.session_state.chat_history.append({"role": "assistant", "content": (
             "Hello! I'm your HealthSense AI assistant. Tell me what health concern you would "
             "like help with. You can speak or type your message.")})
+        save_active_conversation()
+
+    # Saved conversations are stored locally in chat_history.json.
+    with st.expander("📚 Conversation History", expanded=False):
+        saved_data = load_chat_store()
+        saved_chats = saved_data.get("conversations", [])
+        if saved_chats:
+            for index, conversation in enumerate(saved_chats):
+                title = conversation.get("title") or "Saved conversation"
+                date_label = conversation.get("updated_at") or conversation.get("created_at") or ""
+                history_col, open_col = st.columns([4, 1])
+                with history_col:
+                    st.markdown(f"**{html.escape(title)}**")
+                    st.caption(date_label)
+                with open_col:
+                    if st.button("Open", key=f"open_saved_chat_{index}", width="stretch"):
+                        open_saved_conversation(conversation)
+                        st.rerun()
+        else:
+            st.caption("No saved conversations yet. Start a chat and use New Conversation to save it here.")
 
     section("Conversation")
     with st.container(height=400, key="chatbox"):
@@ -1337,10 +1465,15 @@ def render_chatbot():
         with st.spinner("HealthSense AI is thinking... (the first reply can take up to a minute while the model loads)"):
             add_chat_message(typed)
         st.rerun()
-    if st.button("Start new conversation", width="stretch"):
-        st.session_state.chat_history = []
-        st.session_state.last_audio_id = None
-        st.rerun()
+    clear_col, new_col = st.columns(2)
+    with clear_col:
+        if st.button("🧹 Clear Conversation", width="stretch"):
+            clear_current_conversation()
+            st.rerun()
+    with new_col:
+        if st.button("＋ New Conversation", type="primary", width="stretch"):
+            start_new_conversation()
+            st.rerun()
     st.caption(DISCLAIMER + " For urgent symptoms, seek emergency medical care.")
 
 
