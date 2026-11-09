@@ -1,96 +1,210 @@
 # 🩺 HealthSense AI: Health Risk Prediction & Analytics
 
-An educational healthcare app that estimates diabetes risk with machine learning, reads medical reports, suggests the right type of specialist and matching hospitals in India, and includes an AI health assistant that answers from a built-in knowledge base.
+An educational healthcare application that combines machine learning, medical report analysis, hospital recommendations, and an AI-powered health assistant in one platform.
 
-**🚀 Live demo:** https://health-risk-prediction-ai-bzhsb5qsdg8zf2kmvprxtz.streamlit.app/
+HealthSense AI helps users explore potential diabetes risk, understand basic medical report information, identify relevant medical specialists, and ask general health-related questions through text or voice.
 
-> ⚠️ **Disclaimer:** This is an educational project. It does not diagnose any condition and is not medical advice. Always consult a qualified doctor.
+**🚀 Live Demo:** https://health-sense-ai.streamlit.app/
 
-<!-- Add 3 screenshots here: Home, Risk Analysis results, AI Chatbot -->
+> ⚠️ **Medical Disclaimer:** HealthSense AI is an educational project, not a medical diagnostic tool. Its predictions and AI-generated responses are not medical advice. Always consult a qualified healthcare professional for diagnosis and treatment.
+
+<!-- Add screenshots: Home Page, Health Risk Analysis, Medical Report Analyzer, AI Health Assistant -->
+
+---
 
 ## ✨ Features
 
-| Page | What it does |
+| Module | Description |
 |---|---|
-| **Health Risk Analysis** | Enter age, weight, height, glucose and blood pressure. Get BMI, an ML risk estimate (Low / Moderate / High) with a risk bar, and a threshold-based screen. |
-| **Doctor recommendations** | Names the specialist that fits your results (for example Endocrinologist or Cardiologist) and shows the top matching hospital in your city, with alternatives and a map link. |
-| **Medical Report Analyzer** | Upload a PDF, DOCX or TXT report. Finds age, BMI, glucose and BP, estimates risk, summarises it in plain language, and shows related health facts. |
-| **AI Health Assistant** | Chat by text or voice. Answers use a health knowledge base (retrieval) plus an LLM, show doctor suggestions when asked, warn about emergencies, and can read replies aloud. |
+| **Health Risk Analysis** | Collects health inputs such as age, weight, height, glucose, and blood pressure to calculate BMI and estimate diabetes risk using a machine learning model. |
+| **Risk Assessment Results** | Displays a risk category (Low, Moderate, or High), a visual risk indicator, and educational health information. |
+| **Doctor Recommendations** | Suggests relevant medical specialties based on the assessment and helps users find matching hospitals in Indian cities. |
+| **Medical Report Analyzer** | Accepts PDF, DOCX, and TXT medical reports, extracts relevant health information, and presents a simplified summary. |
+| **AI Health Assistant** | Allows users to ask health-related questions through text or voice and receive AI-assisted responses based on a built-in health knowledge base. |
+| **Voice Interaction** | Supports voice input and spoken responses where the required voice components are available. |
+| **Emergency Awareness** | Identifies potentially urgent situations in conversations and advises users to seek appropriate medical attention. |
 
-## 🧠 How it works
+## 🧠 How It Works
 
-```
-User input / report ──► Risk model (Random Forest) ──► Risk level + specialist advice
-                                                     └─► Hospital directory (by city)
-User question ──► Retrieval over knowledge base (TF-IDF) ──► LLM (Ollama locally, or Groq in the cloud)
-                                                             └─► Emergency check + doctor suggestions
-```
+### Health Risk Assessment
 
-- **Risk model:** Random Forest trained on the public *Pima Indians Diabetes* dataset (724 rows after removing missing values). Inputs: age, BMI, glucose, diastolic blood pressure.
-- **Retrieval:** health notes in `knowledge/` are split into passages and ranked with TF-IDF cosine similarity. The best passages are given to the LLM so answers stay grounded.
-- **AI engine:** uses local **Ollama** when available, otherwise **Groq** (cloud) if a key is set, otherwise answers directly from the knowledge base.
-- **Doctor directory:** `doctors.csv` lists 121 well-known hospitals in 42 Indian cities with their relevant departments and a Google Maps link. It lists hospital departments, not individual doctors.
+1. The user enters basic health information.
+2. The application calculates BMI and processes the selected health indicators.
+3. A trained Random Forest model estimates diabetes risk.
+4. The application displays the estimated risk category and relevant specialist recommendations.
 
-## 📊 Model performance
+### Medical Report Analysis
 
-Evaluated on a 20% held-out test set (145 patients):
+1. The user uploads a medical report.
+2. The application extracts readable text from the supported document.
+3. Relevant health indicators are identified where available.
+4. The extracted information is presented in a simplified summary with related health information.
 
-| Metric | Score |
-|---|---|
+### AI Health Assistant
+
+1. The user asks a question using voice or text.
+2. The application searches its built-in health knowledge base using TF-IDF retrieval.
+3. Relevant information is passed to the available AI engine.
+4. The assistant generates a response, with emergency-awareness checks and specialist suggestions where appropriate.
+
+## ⚙️ Technology and Implementation
+
+- **Machine Learning:** Random Forest classifier for diabetes risk estimation.
+- **Data Processing:** Python and pandas for handling health information.
+- **Information Retrieval:** TF-IDF vectorization and cosine similarity for retrieving relevant health knowledge.
+- **AI Integration:** Ollama for local language-model inference or Groq for cloud-based inference.
+- **Document Processing:** pypdf and python-docx for extracting text from medical reports.
+- **Application Interface:** Streamlit for the interactive web application.
+- **Hospital Directory:** CSV-based hospital information organized by city and medical specialty.
+
+## 📊 Model Performance
+
+The diabetes risk model was evaluated using a held-out test dataset.
+
+| Evaluation Metric | Score |
+|---|---:|
 | Accuracy | 0.68 |
 | ROC-AUC | 0.74 |
-| Recall (high-risk class) | 0.68 |
-| Precision (high-risk class) | 0.52 |
+| Recall (High-Risk Class) | 0.68 |
+| Precision (High-Risk Class) | 0.52 |
 
-**Limitations (please read):**
-- It predicts **diabetes risk only**, from just four inputs.
-- The dataset is small and comes from one population (Pima women, 21 and older), so results may not generalise to everyone.
-- Scores are modest. Treat the output as an educational estimate, never as a diagnosis.
-- Hospital and city pairs should be verified before relying on them.
+**Model limitations:**
 
-## 🛠️ Tech stack
+- The model estimates diabetes risk only; it does not predict other diseases.
+- It uses a limited set of health indicators.
+- The training dataset is based on the Pima Indians Diabetes dataset and may not represent all populations.
+- Model performance is not sufficient for clinical decision-making.
+- Hospital and department information should be independently verified before visiting.
 
-Python · Streamlit · scikit-learn · pandas · TF-IDF retrieval · Ollama / Groq (LLMs) · pypdf · python-docx
+These results are intended for educational evaluation, not clinical use.
 
-## 💻 Run locally
+## 🛠️ Tech Stack
+
+| Category | Technologies |
+|---|---|
+| Programming Language | Python |
+| Frontend / Application | Streamlit |
+| Machine Learning | scikit-learn, Random Forest |
+| Data Processing | pandas |
+| Information Retrieval | TF-IDF, cosine similarity |
+| AI / LLM | Ollama, Groq |
+| Document Processing | pypdf, python-docx |
+| Voice Features | streamlit-mic-recorder, faster-whisper (optional) |
+| Data Storage | CSV and local project files |
+| Deployment | Streamlit Community Cloud |
+
+## 💻 Run Locally
+
+**1. Clone the repository**
 
 ```bash
-git clone https://github.com/Afnanaffu8/health-risk-prediction-ai.git
-cd health-risk-prediction-ai
+git clone https://github.com/Afnanaffu8/Health-Sense-Ai.git
+cd Health-Sense-Ai
+```
+
+**2. Create and activate a virtual environment**
+
+```bash
 python -m venv venv
-venv\Scripts\activate          # Windows
+```
+
+Windows:
+
+```powershell
+venv\Scripts\activate
+```
+
+**3. Install dependencies**
+
+```bash
 pip install -r requirements.txt
-python model.py                # trains the model and prints metrics
+```
+
+**4. Train the machine learning model**
+
+```bash
+python model.py
+```
+
+**5. Start the Streamlit application**
+
+```bash
 python -m streamlit run app.py
 ```
 
-**AI options (pick one, or neither):**
-- **Local AI (private):** install [Ollama](https://ollama.com), then run `ollama pull llama3.2:3b`.
-- **Cloud AI:** create a free key at console.groq.com/keys, then create `.streamlit/secrets.toml` containing `GROQ_API_KEY = "your-key"`. Never commit this file.
-- **Neither:** the chatbot falls back to the built-in knowledge base.
+The application should open in your browser at:
 
-Optional voice input: `pip install streamlit-mic-recorder faster-whisper`.
+`http://localhost:8501`
 
-## 📁 Project structure
+## 🤖 AI Configuration
 
-```
-app.py            # Streamlit app (UI, pages, AI routing)
-model.py          # Training, saving and prediction of the risk model
-rag_engine.py     # Retrieval over the knowledge base
-dataset.csv       # Training data (Pima Indians Diabetes, cleaned)
-doctors.csv       # Hospital directory by city and specialty
-knowledge/        # Health notes used for retrieval
-assets/           # Images
-requirements.txt
+HealthSense AI supports different AI execution options.
+
+**Option 1: Local AI with Ollama**
+
+- Install Ollama from https://ollama.com/
+- Download a supported model:
+
+```bash
+ollama pull qwen2.5:3b
 ```
 
-## 🔮 Roadmap
+- Start the Ollama service and configure the application to use the installed model.
 
-- Explainability chart (SHAP) showing why a result was given
-- FastAPI backend and database for assessment history
-- Unit tests, Docker, and CI
-- Heart and kidney risk models
+**Option 2: Cloud AI with Groq**
 
-## 👤 Author
+- Create an API key at https://console.groq.com/keys
+- Create `.streamlit/secrets.toml`:
 
-**Afnan**: Built as a learning project in AI and healthcare technology.
+```toml
+GROQ_API_KEY = "your-groq-api-key"
+```
+
+- Never upload API keys or secrets to GitHub.
+
+**Option 3: Knowledge Base Fallback**
+
+The application can provide knowledge-base-based responses when an external or local LLM is unavailable, depending on the configured fallback implementation.
+
+## 📁 Project Structure
+
+```text
+Health-Sense-Ai/
+│
+├── app.py                 # Main Streamlit application
+├── model.py               # Machine learning model training and prediction
+├── rag_engine.py          # Health knowledge retrieval engine
+├── dataset.csv            # Diabetes dataset
+├── doctors.csv            # Hospital directory
+├── requirements.txt       # Python dependencies
+│
+├── knowledge/             # Health knowledge base
+├── assets/                # Application images and visual assets
+└── .streamlit/             # Streamlit configuration and secrets
+```
+
+*The structure above represents the main project components; additional files may be present in the repository.*
+
+## 🔮 Future Enhancements
+
+- SHAP-based model explainability and feature importance visualization.
+- Database integration for securely managing assessment history.
+- FastAPI backend integration.
+- Automated testing and improved validation.
+- Docker-based deployment.
+- Expansion to additional health-risk prediction models.
+- Improved medical knowledge retrieval and multilingual voice interaction.
+
+## 👨‍💻 Author
+
+**Afnan Qureshi**
+
+Built as an educational project exploring the integration of machine learning, healthcare analytics, document processing, and AI-powered conversational systems.
+
+**Project Repository:** https://github.com/Afnanaffu8/Health-Sense-Ai/
+
+**Live Application:** https://health-sense-ai.streamlit.app/
+
+---
+
+*HealthSense AI — Bringing Machine Learning and AI-Assisted Health Information Together.*
