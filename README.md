@@ -8,7 +8,19 @@ HealthSense AI helps users explore potential diabetes risk, understand basic med
 
 > ⚠️ **Medical Disclaimer:** HealthSense AI is an educational project, not a medical diagnostic tool. Its predictions and AI-generated responses are not medical advice. Always consult a qualified healthcare professional for diagnosis and treatment.
 
-<!-- Add screenshots: Home Page, Health Risk Analysis, Medical Report Analyzer, AI Health Assistant -->
+<## 📸 Application Screenshots  
+1.### Home Page
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/1d4c39e1-2f02-4c87-ba4d-7d8315a60726" />
+2.### Health Risk Analysis
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/07b8ddb3-1954-4ec0-8d8a-b9e2cfe59100" />
+3.### Medical Report Analyzer
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/6ae9cf29-745f-448f-b0ea-f5753f257baf" />
+4.### AI Health Assistant
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/122bd31e-fc92-4618-968b-9e888776da61" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/f01bcd52-1d59-4afc-8c98-5b3f8e853114" />
+
+
+
 
 ---
 
