@@ -38,10 +38,14 @@ ASSETS_DIR = BASE_DIR / "assets"
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".svg")
 
 OLLAMA_BASE = "http://localhost:11434"
-OLLAMA_MODEL = "qwen3:4b-instruct"
+OLLAMA_MODEL = "qwen2.5:3b"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]  # tried in this order
-WHISPER_MODEL_SIZE = "small"
+# Preferred chat models. The app checks Groq's live model list before using them.
+# Do not add audio, moderation, embedding, or retired model IDs to this list.
+GROQ_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"]
+GROQ_SKIP_WORDS = ("whisper", "guard", "tts", "orpheus", "embed", "safeguard", "playai", "distil-whisper")
+GROQ_TRANSCRIPTION_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+WHISPER_MODEL_SIZE = "small"  # Optional local fallback; faster-whisper is not required on Streamlit Cloud.
 MAX_REPORT_CHARS = 3000
 
 PAGES = ["Home", "Health Risk Analysis", "Medical Report Analyzer", "AI Voice Chatbot"]
@@ -251,8 +255,10 @@ div[data-baseweb="popover"] li:hover { background:#E8F3F6 !important; }
 [data-testid="stFileUploaderDropzone"] * { color:#243B53 !important; }
 [data-testid="stFileUploaderDropzone"] button { background:#FFFFFF !important; border:1px solid #087F8C !important; }
 [data-testid="stFileUploaderDropzone"] button * { color:#087F8C !important; }
-[data-testid="stExpander"] { background:#FFFFFF; border:1px solid #E2EAF0 !important; border-radius:14px; }
-[data-testid="stExpander"] summary * { color:#12304A !important; }
+[data-testid="stExpander"], [data-testid="stExpander"] details {
+    background:#FFFFFF !important; border:1px solid #E2EAF0 !important; border-radius:14px !important; }
+[data-testid="stExpander"] summary { background:#FFFFFF !important; border-radius:14px; }
+[data-testid="stExpander"] summary, [data-testid="stExpander"] summary * { color:#12304A !important; fill:#12304A !important; }
 [data-testid="stForm"] { background:#FFFFFF; border:1px solid #E2EAF0; border-radius:18px; padding:20px; }
 
 /* Buttons: text always readable */
@@ -627,9 +633,36 @@ def groq_key():
     return str(key).strip()
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def groq_live_models(key, models_url):
+    """Ask Groq which models are available right now (empty list if the call fails)."""
+    try:
+        r = requests.get(models_url, headers={"Authorization": f"Bearer {key}"}, timeout=10)
+        if r.ok:
+            return [m["id"] for m in r.json().get("data", [])]
+    except (requests.RequestException, ValueError, KeyError):
+        pass
+    return []
+
+
 def groq_models():
+    """Return only live chat models where possible; ignore a stale custom model setting."""
     custom = os.environ.get("GROQ_MODEL", "").strip()
-    return [custom] + GROQ_MODELS if custom else GROQ_MODELS
+    if not custom:
+        try:
+            custom = str(st.secrets.get("GROQ_MODEL", "")).strip()
+        except Exception:
+            custom = ""
+    url = os.environ.get("GROQ_API_URL", GROQ_URL).replace("/chat/completions", "/models")
+    live = groq_live_models(groq_key(), url)
+    if live:
+        ordered = ([custom] if custom in live else [])
+        ordered += [m for m in GROQ_MODELS if m in live and m not in ordered]
+        ordered += [m for m in live if m not in ordered and not any(w in m.lower() for w in GROQ_SKIP_WORDS)]
+        return ordered[:8]
+    # If the model-list endpoint is temporarily unavailable, try a safe production default
+    # and then the other known production models. A bad ID is skipped by ask_groq().
+    return list(dict.fromkeys(([custom] if custom else []) + GROQ_MODELS))
 
 
 def ai_provider():
@@ -644,8 +677,12 @@ def ask_groq(messages, num_predict=450):
     headers = {"Authorization": f"Bearer {groq_key()}", "Content-Type": "application/json"}
     url = os.environ.get("GROQ_API_URL", GROQ_URL)
     last_error = ""
-    for model in groq_models():
+    tried = groq_models()
+    for model in tried:
         payload = {"model": model, "messages": messages, "temperature": 0.4, "max_tokens": num_predict}
+        if "gpt-oss" in model:  # reasoning model: keep thinking short so the answer is not cut off
+            payload["reasoning_effort"] = "low"
+            payload["max_tokens"] = num_predict + 800
         try:
             r = requests.post(url, headers=headers, json=payload, timeout=60)
         except requests.exceptions.Timeout:
@@ -665,7 +702,8 @@ def ask_groq(messages, num_predict=450):
             continue
         if text:
             return True, text
-    return False, f"Groq could not answer right now ({last_error}). Please try again in a minute."
+    return False, (f"Groq could not answer right now (tried: {', '.join(tried) or 'none'}; "
+                   f"last error {last_error}). Please try again in a minute.")
 
 
 def ask_ai(messages, num_predict=450):
@@ -799,8 +837,29 @@ def load_whisper_model():
 
 
 def transcribe_audio(audio_bytes):
+    """Transcribe microphone audio with Groq in cloud mode, or local Whisper if installed."""
+    key = groq_key()
+    if key:
+        headers = {"Authorization": f"Bearer {key}"}
+        files = {"file": ("healthsense_recording.webm", audio_bytes, "audio/webm")}
+        data = {"model": "whisper-large-v3-turbo", "language": "en", "response_format": "json"}
+        try:
+            response = requests.post(
+                GROQ_TRANSCRIPTION_URL, headers=headers, files=files, data=data, timeout=90
+            )
+            if response.ok:
+                transcript = response.json().get("text", "").strip()
+                if transcript:
+                    return transcript
+                raise RuntimeError("Groq transcription returned an empty transcript.")
+            detail = response.text[:300]
+            raise RuntimeError(f"Groq voice transcription failed ({response.status_code}): {detail}")
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Could not reach Groq voice transcription: {exc}") from exc
+
+    # Optional offline/local transcription. Install faster-whisper only if you need this mode.
     model = load_whisper_model()
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
         f.write(audio_bytes)
         path = f.name
     try:
@@ -1194,7 +1253,7 @@ def render_report_analyzer():
 
 def render_chatbot():
     page_header("PERSONAL AI HEALTH ASSISTANT", "AI Health Assistant",
-                "Describe your health concern naturally. Answers use your local AI model "
+                "Describe your health concern naturally. Answers use an AI model "
                 "and the built-in health knowledge base.")
     provider = ai_provider()
     if provider == "ollama":
@@ -1237,18 +1296,20 @@ def render_chatbot():
     else:
         st.session_state.pop("speak_pending", None)
 
+    voice_description = ("Record your message and stop when finished. Groq transcribes it when a cloud key is set; "
+                         "otherwise an optional local Whisper installation is used.")
     st.markdown('<div style="height:12px"></div><div class="voice-panel"><div class="voice-heading">'
-                'Speak to your assistant</div><div class="voice-sub">Record your message, stop when '
-                'finished, and HealthSense AI will process it locally.</div></div>', unsafe_allow_html=True)
+                'Speak to your assistant</div><div class="voice-sub">' + html.escape(voice_description)
+                + '</div></div>', unsafe_allow_html=True)
 
     mic_recorder = get_mic_recorder()
     if mic_recorder is None:
-        callout("info", "Voice input needs: pip install streamlit-mic-recorder faster-whisper. "
-                        "You can still type below.")
+        callout("info", "Voice input needs streamlit-mic-recorder in requirements.txt. "
+                        "You can still type below while the app is rebuilding.")
     else:
         try:
             audio = mic_recorder(start_prompt="🎙️ Start recording", stop_prompt="⏹️ Stop recording",
-                                 just_once=True, use_container_width=True,
+                                 just_once=True, use_container_width=True, format="webm",
                                  key="healthsense_voice_recorder")
             if audio and audio.get("bytes"):
                 audio_id = audio.get("id")
@@ -1263,7 +1324,7 @@ def render_chatbot():
                     else:
                         callout("warning", "No speech was recognized. Please try again.")
         except Exception as exc:
-            callout("error", "Voice input failed. You can type your message instead.")
+            callout("error", "Voice input failed. Check the voice service configuration or type your message instead.")
             with st.expander("Technical details"):
                 st.code(str(exc))
 
