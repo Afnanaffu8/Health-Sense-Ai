@@ -1,0 +1,9 @@
+Source: Summary of public WHO guidance and Indian consensus guidelines. Verify against the official documents before relying on it.
+
+BMI (body mass index) is weight in kilograms divided by height in metres squared. WHO general categories are: below 18.5 underweight, 18.5 to 24.9 normal, 25 to 29.9 overweight, and 30 or above obese.
+
+Guidelines for Asian populations, including Indian consensus guidelines, use lower cut-offs, with overweight starting at about a BMI of 23, because health risks rise at lower BMI in these groups.
+
+BMI does not measure body fat directly and can be misleading for very muscular people. Waist measurement also helps assess health risk.
+
+For a healthy weight, aim for gradual changes through balanced eating and regular activity rather than crash diets.

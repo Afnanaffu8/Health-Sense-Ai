@@ -1,0 +1,9 @@
+Source: Summary of public WHO and ACC/AHA guidance. Verify against the official documents before relying on it.
+
+Blood pressure (BP) is written as systolic over diastolic, for example 120/80 mmHg. Systolic is the pressure when the heart beats, and diastolic is the pressure when the heart rests between beats.
+
+A normal blood pressure is generally below 120/80 mmHg. Guidelines differ on the cut-off for high blood pressure (hypertension): WHO uses 140/90 mmHg or higher on repeated readings, while US guidelines use 130/80 mmHg or higher. A diagnosis needs repeated measurements by a healthcare professional, not a single reading.
+
+To help keep blood pressure healthy: reduce salt (WHO suggests under 5 grams of salt per day), eat more fruit, vegetables and whole grains, stay physically active, maintain a healthy weight, limit alcohol, avoid tobacco, and manage stress and sleep.
+
+Very high readings, such as 180/120 mmHg or above, especially with chest pain, severe headache, breathlessness or weakness, need urgent medical care.

@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+*.pyc
+risk_model.joblib
+.streamlit/secrets.toml
+.env
